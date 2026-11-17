@@ -1,0 +1,5 @@
+# Vigil build configuration — MSVC toolchain (primary target).
+# Requires Visual Studio Build Tools ("Desktop development with C++").
+
+[build]
+target = "x86_64-pc-windows-msvc"

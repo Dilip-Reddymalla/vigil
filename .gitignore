@@ -1,0 +1,24 @@
+# Rust
+target/
+Cargo.lock.orig
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Local build / packaging output
+dist/
+*.zip
+
+# Databases & logs (local-only)
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Editors / OS
+.idea/
+.vscode/
+*.suo
+Thumbs.db
+Desktop.ini

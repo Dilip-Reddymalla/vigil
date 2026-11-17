@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+ * Vigil design tokens — Apple/Fluent hybrid (see vigil-dev skill).
+ * ------------------------------------------------------------------------- */
+
+@theme {
+  --font-sans: "Inter", -apple-system, "SF Pro Display", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+}
+
+:root {
+  --background: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #fafbfc;
+  --border-subdued: rgba(0, 0, 0, 0.06);
+  --text-primary: #121417;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+
+  --cat-productivity: #10b981;
+  --cat-development: #2563eb;
+  --cat-communication: #7c3aed;
+  --cat-entertainment: #f59e0b;
+  --cat-social: #f43f5e;
+  --cat-browsing: #0284c7;
+  --cat-system: #64748b;
+  --accent: #0ea5e9;
+  --accent-2: #6366f1;
+}
+
+.dark {
+  --background: #0b0d10;
+  --surface: #14171c;
+  --surface-2: #1a1e24;
+  --border-subdued: rgba(255, 255, 255, 0.08);
+  --text-primary: #f1f3f5;
+  --text-secondary: #9aa1ab;
+  --text-tertiary: #6b7280;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --background: #0b0d10;
+    --surface: #14171c;
+    --surface-2: #1a1e24;
+    --border-subdued: rgba(255, 255, 255, 0.08);
+    --text-primary: #f1f3f5;
+    --text-secondary: #9aa1ab;
+    --text-tertiary: #6b7280;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.5), 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-(--border-subdued);
+  }
+  body {
+    @apply bg-(--background) text-(--text-primary) font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  /* refined scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-subdued);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+/* Inner svg of the custom Icon pack fills its positioned box. */
+.vigil-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+@utility card {
+  background: var(--surface);
+  border: 1px solid var(--border-subdued);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}

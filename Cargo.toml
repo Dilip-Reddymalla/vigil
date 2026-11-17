@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["src-service", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Dilip Reddy Malla"]
+
+[profile.dev]
+# Keep the build lean on disk (full PDBs filled the drive during the Tauri build).
+debug = "line-tables-only"
+incremental = false
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = true

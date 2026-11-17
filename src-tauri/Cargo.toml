@@ -1,0 +1,41 @@
+[package]
+name = "vigil-dashboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Vigil Tauri v2 dashboard backend (MSVC build)."
+
+[[bin]]
+name = "vigil-dashboard"
+path = "src/main.rs"
+
+[lib]
+name = "vigil_dashboard_lib"
+path = "src/lib.rs"
+
+[features]
+# The Tauri shell is the default build (requires MSVC + WebView2).
+default = ["tauri"]
+tauri = ["dep:tauri", "dep:serde", "dep:serde_json", "dep:tauri-build", "dep:windows-sys", "dep:tauri-plugin-dialog", "dep:rusqlite", "dep:ureq"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+# `custom-protocol` embeds the frontend assets for production builds (without it,
+# even release binaries fall back to devUrl and require the dev server).
+tauri = { version = "2", features = ["custom-protocol"], optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+windows-sys = { version = "0.59", optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+] }
+# Blocking HTTP client used for update checks + downloads (GitHub API / assets).
+ureq = { version = "2", optional = true }
+
+[build-dependencies]
+tauri-build = { version = "2", optional = true }
