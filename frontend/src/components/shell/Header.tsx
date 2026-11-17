@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { RefreshCw } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,7 @@ function windowApi() {
 export function Header() {
   const { theme, setTheme } = useTheme();
   const { date, setDate, bumpRefresh } = useSelectedDate();
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const isDark = theme === "dark";
   const toggle = () => setTheme(isDark ? "light" : "dark");
   const refresh = () => {
@@ -38,7 +40,23 @@ export function Header() {
         <Button variant="ghost" size="icon" aria-label="Previous day" onClick={() => setDate(shiftDate(date, -1))}>
           <Icon name="date-previous" size={18} />
         </Button>
-        <span className="min-w-[110px] text-center text-sm font-medium">{formatFriendly(date)}</span>
+        <button
+          type="button"
+          onClick={() => dateInputRef.current?.showPicker()}
+          className="min-w-[110px] cursor-pointer rounded-md px-2 py-1 text-center text-sm font-medium transition-colors hover:bg-(--surface-2)"
+          title="Pick a date"
+        >
+          {formatFriendly(date)}
+        </button>
+        <input
+          ref={dateInputRef}
+          type="date"
+          value={date}
+          onChange={(e) => e.target.value && setDate(e.target.value)}
+          className="sr-only h-0 w-0"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
         <Button variant="ghost" size="icon" aria-label="Next day" onClick={() => setDate(shiftDate(date, 1))}>
           <Icon name="date-next" size={18} />
         </Button>
