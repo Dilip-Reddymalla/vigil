@@ -6,6 +6,7 @@ import { WebsitesView } from "@/views/WebsitesView";
 import { NetworkView } from "@/views/NetworkView";
 import { TimelineView } from "@/views/TimelineView";
 import { ReportsView } from "@/views/ReportsView";
+import { ImprovementsView } from "@/views/ImprovementsView";
 import { SettingsView } from "@/views/SettingsView";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="/network" element={<NetworkView />} />
           <Route path="/timeline" element={<TimelineView />} />
           <Route path="/reports" element={<ReportsView />} />
+          <Route path="/improvements" element={<ImprovementsView />} />
           <Route path="/settings" element={<SettingsView />} />
         </Route>
       </Routes>

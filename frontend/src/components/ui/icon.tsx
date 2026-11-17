@@ -13,6 +13,7 @@ import emptyState from "../../assets/icons/empty-state.svg?raw";
 import exportCsv from "../../assets/icons/export-csv.svg?raw";
 import focusScore from "../../assets/icons/focus-score.svg?raw";
 import idleTime from "../../assets/icons/idle-time.svg?raw";
+import improvements from "../../assets/icons/improvements.svg?raw";
 import localDatabase from "../../assets/icons/local-database.svg?raw";
 import lockedSession from "../../assets/icons/locked-session.svg?raw";
 import network from "../../assets/icons/network.svg?raw";
@@ -46,6 +47,7 @@ const ICONS: Record<string, string> = {
   "export-csv": exportCsv,
   "focus-score": focusScore,
   "idle-time": idleTime,
+  improvements,
   "local-database": localDatabase,
   "locked-session": lockedSession,
   network,

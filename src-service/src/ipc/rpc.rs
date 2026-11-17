@@ -129,6 +129,10 @@ fn dispatch_inner(engine: &mut Engine, method: &str, params: Option<&Value>) -> 
             let date = str_param(params, "local_date")?;
             Ok(engine.energy_status(date))
         }
+        "overview.compare" => {
+            let period = str_param(params, "period").unwrap_or_else(|_| "week".into());
+            Ok(engine.compare_periods(&period))
+        }
         "database.retention" => {
             let days: i64 = params
                 .and_then(|p| p.get("keep_days"))

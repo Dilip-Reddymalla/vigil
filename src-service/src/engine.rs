@@ -717,6 +717,14 @@ impl Engine {
         std::env::var("COMPUTERNAME").unwrap_or_else(|_| "This PC".into())
     }
 
+    /// `overview.compare` — current vs previous period (week/month) for the
+    /// Improvements page. Falls back to an empty JSON when the period can't be
+    /// resolved (shouldn't happen with a valid today).
+    pub fn compare_periods(&self, period: &str) -> serde_json::Value {
+        crate::db::trends::compare(self.db.conn(), period)
+            .unwrap_or_else(|| serde_json::json!({ "verdict": "mixed", "reasons": [] }))
+    }
+
     /// `exclusions.list`
     pub fn exclusions(&self) -> serde_json::Value {
         serde_json::json!(crate::db::insights::list_exclusions(self.db.conn()))

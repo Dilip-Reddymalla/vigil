@@ -200,6 +200,47 @@ export async function exitApp(): Promise<void> {
   }
 }
 
+export interface ComparisonMetrics {
+  screen_ms: number;
+  focus: number | null;
+  deep_ms: number;
+  deep_sessions: number;
+  distraction: number | null;
+  active_ratio: number | null;
+  days: number;
+}
+export interface ComparisonDailyPoint {
+  date: string;
+  screen_ms: number;
+  deep_ms: number;
+  focus: number | null;
+}
+export type Verdict = "good" | "mixed" | "needs_attention";
+export interface Comparison {
+  period: string;
+  verdict: Verdict;
+  reasons: string[];
+  current: ComparisonMetrics;
+  previous: ComparisonMetrics;
+  deltas: {
+    screen_pct: number | null;
+    focus_pct: number | null;
+    deep_pct: number | null;
+    deep_sessions_pct: number | null;
+    distraction_pct: number | null;
+    active_pct: number | null;
+  };
+  daily: { current: ComparisonDailyPoint[]; previous: ComparisonDailyPoint[] };
+}
+
+export async function fetchComparison(period: "week" | "month"): Promise<Comparison | null> {
+  try {
+    return await call<Comparison>("overview_compare", { period });
+  } catch {
+    return null;
+  }
+}
+
 export async function addExclusion(processName: string): Promise<boolean> {
   try {
     return await call<boolean>("add_exclusion", { processName });

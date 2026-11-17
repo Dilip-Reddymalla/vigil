@@ -325,6 +325,13 @@ Start-Process '{install_dir}\vigil-dashboard.exe'
         app.exit(0);
     }
 
+    /// `overview.compare` — current vs previous period metrics for the
+    /// Improvements page.
+    #[tauri::command]
+    pub fn overview_compare(period: String) -> Result<Value, String> {
+        ServiceClient::call("overview.compare", Some(json!({ "period": period })))
+    }
+
     #[tauri::command]
     pub fn exclusions_list() -> Result<Value, String> {
         ServiceClient::call("exclusions.list", None)
@@ -405,7 +412,8 @@ pub fn run() {
             commands::database_retention_get,
             commands::update_check,
             commands::update_apply,
-            commands::app_exit
+            commands::app_exit,
+            commands::overview_compare
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
