@@ -208,7 +208,7 @@ pub fn rollup_day(conn: &Connection, local_date: &str) -> rusqlite::Result<bool>
             idle_ms, locked_ms, sleep_ms, session_count, productivity_score, deep_count, deep_ms,
             session_count, distraction_index, net_sent, net_recv, top_apps, top_sites,
             serde_json::to_string(&hourly).unwrap_or_else(|_| "[]".into()),
-            serde_json::to_string(&net_hourly).unwrap_or_else(|_| "[]".into()),
+            net_hourly,
             now,
         ],
     )?;

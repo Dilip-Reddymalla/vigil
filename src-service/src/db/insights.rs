@@ -137,16 +137,21 @@ pub fn network_hourly(conn: &Connection, local_date: &str) -> Vec<(i64, i64)> {
         )
         .ok();
     if let Some(json) = json {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&json) {
-            if let Some(arr) = v.as_array() {
-                for item in arr {
-                    let h = item.get("hour").and_then(|x| x.as_i64()).unwrap_or(0) as usize;
-                    if h < 24 {
-                        out[h] = (
-                            item.get("sent").and_then(|x| x.as_i64()).unwrap_or(0),
-                            item.get("recv").and_then(|x| x.as_i64()).unwrap_or(0),
-                        );
-                    }
+        // Tolerate legacy double-encoding (a JSON string wrapping the array).
+        let parsed = serde_json::from_str::<serde_json::Value>(&json)
+            .ok()
+            .and_then(|v| match v {
+                serde_json::Value::String(s) => serde_json::from_str::<serde_json::Value>(&s).ok(),
+                other => Some(other),
+            });
+        if let Some(arr) = parsed.as_ref().and_then(|x| x.as_array()) {
+            for item in arr {
+                let h = item.get("hour").and_then(|x| x.as_i64()).unwrap_or(0) as usize;
+                if h < 24 {
+                    out[h] = (
+                        item.get("sent").and_then(|x| x.as_i64()).unwrap_or(0),
+                        item.get("recv").and_then(|x| x.as_i64()).unwrap_or(0),
+                    );
                 }
             }
         }
@@ -214,5 +219,54 @@ pub fn list_excluded_domains(conn: &Connection) -> Vec<String> {
     match rows {
         Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
         Err(_) => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::migrations;
+
+    fn mem() -> Connection {
+        let c = Connection::open_in_memory().unwrap();
+        migrations::apply(&c).unwrap();
+        c
+    }
+
+    fn seed_summary(conn: &Connection, date: &str, hourly_json: &str) {
+        conn.execute(
+            "INSERT INTO daily_summaries
+                (local_date, total_screen_time_ms, hourly_network_json, computed_at)
+             VALUES (?1, 0, ?2, '2026-01-01T00:00:00Z')",
+            rusqlite::params![date, hourly_json],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn fallback_decodes_legacy_double_encoded() {
+        let conn = mem();
+        // Legacy bug: the column held a JSON *string* wrapping the array.
+        let inner = serde_json::json!([
+            { "hour": 0, "sent": 100, "recv": 200 },
+            { "hour": 1, "sent": 50, "recv": 25 }
+        ]);
+        let double = serde_json::to_string(&inner.to_string()).unwrap();
+        seed_summary(&conn, "2026-11-17", &double);
+        let out = network_hourly(&conn, "2026-11-17");
+        assert_eq!(out[0], (100, 200));
+        assert_eq!(out[1], (50, 25));
+        assert_eq!(out[2], (0, 0));
+    }
+
+    #[test]
+    fn fallback_decodes_normal_single_encoded() {
+        let conn = mem();
+        let inner = serde_json::json!([{ "hour": 5, "sent": 1, "recv": 2 }]);
+        let single = serde_json::to_string(&inner).unwrap();
+        seed_summary(&conn, "2026-11-16", &single);
+        let out = network_hourly(&conn, "2026-11-16");
+        assert_eq!(out[5], (1, 2));
+        assert_eq!(out[0], (0, 0));
     }
 }
