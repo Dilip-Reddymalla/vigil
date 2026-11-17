@@ -109,6 +109,17 @@ pub mod commands {
     // ---- Updates (GitHub Releases) ----
 
     const DEFAULT_USER_AGENT: &str = "Vigil-Dashboard";
+    /// Default update feed (used when the Settings fields are left empty).
+    const DEFAULT_UPDATE_OWNER: &str = "Dilip-Reddymalla";
+    const DEFAULT_UPDATE_REPO: &str = "vigil";
+
+    /// Resolve the feed owner/repo from the command args, falling back to the
+    /// baked-in defaults when empty.
+    fn update_feed<'a>(owner: &'a str, repo: &'a str) -> (&'a str, &'a str) {
+        let o = if owner.trim().is_empty() { DEFAULT_UPDATE_OWNER } else { owner.trim() };
+        let r = if repo.trim().is_empty() { DEFAULT_UPDATE_REPO } else { repo.trim() };
+        (o, r)
+    }
 
     /// Fetch the latest release object from the GitHub Releases API.
     fn gh_latest(owner: &str, repo: &str) -> Result<Value, String> {
@@ -182,11 +193,7 @@ pub mod commands {
     /// newer than the installed version. `owner`/`repo` come from Settings.
     #[tauri::command]
     pub fn update_check(owner: String, repo: String) -> Result<Value, String> {
-        let owner = owner.trim();
-        let repo = repo.trim();
-        if owner.is_empty() || repo.is_empty() {
-            return Err("GitHub repo not configured. Add owner/repo in Settings → Updates.".into());
-        }
+        let (owner, repo) = update_feed(&owner, &repo);
         let release = gh_latest(owner, repo)?;
         let remote = release
             .get("tag_name")
@@ -219,8 +226,7 @@ pub mod commands {
     /// The UI calls `app_exit` right after this returns.
     #[tauri::command]
     pub fn update_apply(owner: String, repo: String) -> Result<bool, String> {
-        let owner = owner.trim();
-        let repo = repo.trim();
+        let (owner, repo) = update_feed(&owner, &repo);
         let release = gh_latest(owner, repo)?;
         let version = release
             .get("tag_name")

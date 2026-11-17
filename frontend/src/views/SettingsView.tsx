@@ -33,8 +33,10 @@ export function SettingsView() {
   const [loggingOn, setLoggingOn] = useState(isLogEnabled());
   const [exportDir, setExportDir] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [updateOwner, setUpdateOwner] = useState("");
-  const [updateRepo, setUpdateRepo] = useState("");
+  const DEFAULT_UPDATE_OWNER = "Dilip-Reddymalla";
+  const DEFAULT_UPDATE_REPO = "vigil";
+  const [updateOwner, setUpdateOwner] = useState(DEFAULT_UPDATE_OWNER);
+  const [updateRepo, setUpdateRepo] = useState(DEFAULT_UPDATE_REPO);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [updateMsg, setUpdateMsg] = useState<string | null>(null);
@@ -47,6 +49,8 @@ export function SettingsView() {
     getSystemName().then((n) => setDisplayName(n));
     getSetting("update_owner").then((v) => v && setUpdateOwner(v));
     getSetting("update_repo").then((v) => v && setUpdateRepo(v));
+    setUpdateOwner((prev) => prev || DEFAULT_UPDATE_OWNER);
+    setUpdateRepo((prev) => prev || DEFAULT_UPDATE_REPO);
     getRetention().then((d) => setRetentionState(String(d)));
     listExclusions().then(setExclusions);
   }, [status]);
@@ -106,10 +110,6 @@ export function SettingsView() {
   };
 
   const checkForUpdate = async () => {
-    if (!updateOwner.trim() || !updateRepo.trim()) {
-      setUpdateMsg("Enter a GitHub owner and repo first.");
-      return;
-    }
     setUpdateBusy(true);
     const info = await checkForUpdates(updateOwner.trim(), updateRepo.trim());
     setUpdateBusy(false);
