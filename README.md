@@ -4,6 +4,20 @@ Vigil is a lightweight, privacy-first Windows 11 digital-activity monitor. It re
 your screen time, apps, websites, and network usage — entirely on your own PC. No
 cloud, no telemetry.
 
+## Download & install
+
+Download the latest release from the [Releases page](https://github.com/Dilip-Reddymalla/vigil/releases).
+Extract the zip and run `Vigil-Setup-*.exe` (installs the service + dashboard, or
+run the standalone binaries).
+
+**Code signing:** Vigil's binaries are code-signed with **free signing provided by
+the [SignPath Foundation](https://signpath.org)** (certificate issued by SignPath
+Foundation). This helps Windows Smart App Control / SmartScreen trust the binaries.
+
+## Privacy
+
+Vigil is fully local — no cloud, no telemetry. See the [Privacy Policy](PRIVACY.md).
+
 ## Components
 
 | Crate | Role |
