@@ -12,6 +12,7 @@ import argparse
 import ctypes
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -33,10 +34,9 @@ def current_sid():
     """Resolve the current user's SID (used in the pipe name)."""
     try:
         out = subprocess.check_output(["whoami", "/user"], text=True)
-        for line in out.splitlines():
-            line = line.strip()
-            if line.startswith("S-1-"):
-                return line
+        m = re.search(r"S-1-\S+", out)
+        if m:
+            return m.group(0)
     except Exception:
         pass
     raise RuntimeError("cannot resolve user SID")
