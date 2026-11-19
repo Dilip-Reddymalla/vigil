@@ -1,8 +1,12 @@
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
+// NOTE: This is the python-dashboard build. Data flows to the service through the
+// local Python bridge (HTTP on 127.0.0.1:8765) instead of the Tauri native shell,
+// so the same UI can run in a normal browser on Smart App Control systems.
 import type { DashboardSummary, ServiceStatus } from "@/types";
 import { today } from "./date";
 import { log } from "./logger";
+
+/** Base URL of the local bridge server (portable-python/bridge_server.py). */
+const BRIDGE_URL = (import.meta.env.VITE_BRIDGE_URL as string | undefined) ?? "http://127.0.0.1:8765";
 
 export { today };
 
@@ -40,15 +44,26 @@ function mapSummary(raw: any): DashboardSummary {
   };
 }
 
-/** Internal invoke wrapper that logs every call + error. */
+/** Internal RPC wrapper that logs every call + error. */
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  log.info(`invoke ${cmd}`, args ?? {});
+  log.info(`rpc ${cmd}`, args ?? {});
   try {
-    const r = await invoke<T>(cmd, args);
-    log.info(`invoke ${cmd} => ok`, r);
-    return r;
+    const res = await fetch(`${BRIDGE_URL}/rpc`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ method: cmd, params: args ?? {} }),
+    });
+    if (!res.ok) {
+      throw new Error(`bridge http ${res.status}`);
+    }
+    const data = (await res.json()) as { result?: T; error?: string };
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    log.info(`rpc ${cmd} => ok`, data.result);
+    return data.result as T;
   } catch (e) {
-    log.error(`invoke ${cmd} => FAILED`, e);
+    log.error(`rpc ${cmd} => FAILED`, e);
     throw e;
   }
 }
@@ -307,15 +322,12 @@ export async function openReportFolder(): Promise<boolean> {
   }
 }
 
-/** Open a native folder picker; returns the chosen directory (and null if cancelled). */
+/** Open a folder picker. In the browser build there is no native dialog, so we
+ * fall back to a manual path prompt (or null if cancelled/unsupported). */
 export async function pickFolder(): Promise<string | null> {
   try {
-    const dir = await open({
-      directory: true,
-      multiple: false,
-      title: "Choose report export folder",
-    });
-    return typeof dir === "string" && dir.length > 0 ? dir : null;
+    const dir = window.prompt?.("Enter a folder path for exports", "");
+    return typeof dir === "string" && dir.trim().length > 0 ? dir.trim() : null;
   } catch (e) {
     log.error("pickFolder failed", e);
     return null;

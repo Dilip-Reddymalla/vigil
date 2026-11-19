@@ -128,12 +128,31 @@ fn show_menu(hwnd: HWND) {
     }
 }
 
-/// Launch the dashboard binary if present next to this executable.
+/// Launch the dashboard. Preferred: a `dashboard-launcher.cmd` override beside the
+/// service (used on Smart App Control systems, where the compiled dashboard exe is
+/// blocked and we instead open a Python-served browser dashboard). Falls back to
+/// launching `vigil-dashboard.exe` if present.
 fn open_dashboard() {
     let Some(exe) = std::env::current_exe().ok() else {
         return;
     };
     let dir = exe.parent().unwrap_or(std::path::Path::new("."));
+
+    // Override launcher (python-dashboard mode).
+    let launcher = dir.join("dashboard-launcher.cmd");
+    if launcher.exists() {
+        match std::process::Command::new("cmd.exe").arg("/C").arg(&launcher).spawn() {
+            Ok(_) => crate::log::raw(&serde_json::json!({
+                "event": "open_dashboard", "status": "launcher_spawned"
+            })),
+            Err(e) => crate::log::raw(&serde_json::json!({
+                "event": "open_dashboard", "status": "launcher_error", "error": e.to_string()
+            })),
+        }
+        return;
+    }
+
+    // Default: launch the dashboard binary if present next to this executable.
     let dashboard = dir.join("vigil-dashboard.exe");
     if !dashboard.exists() {
         crate::log::raw(&serde_json::json!({

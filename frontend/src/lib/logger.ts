@@ -55,6 +55,10 @@ function mirror(line: string) {
 }
 
 function toFile(level: string, context: string, data: unknown) {
+  // Browser (python-dashboard) build has no Tauri host — skip file logging.
+  if (typeof window === "undefined" || !("__TAURI__" in window)) {
+    return;
+  }
   try {
     void invoke("dashboard_log", {
       level,
