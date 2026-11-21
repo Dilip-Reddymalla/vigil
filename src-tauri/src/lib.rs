@@ -121,9 +121,12 @@ pub mod commands {
         (o, r)
     }
 
-    /// Fetch the latest release object from the GitHub Releases API.
+    /// Fetch the newest **native** release (tag `v<num>...`, i.e. NOT the
+    /// `python-dashboard-*` stream) from the GitHub Releases API. Each stream must
+    /// update from its own releases — the native dashboard must never pull the
+    /// python-dashboard release (which GitHub marks as "Latest").
     fn gh_latest(owner: &str, repo: &str) -> Result<Value, String> {
-        let url = format!("https://api.github.com/repos/{owner}/{repo}/releases/latest");
+        let url = format!("https://api.github.com/repos/{owner}/{repo}/releases?per_page=100");
         let resp = ureq::get(&url)
             .set("Accept", "application/vnd.github+json")
             .set("User-Agent", DEFAULT_USER_AGENT)
@@ -134,7 +137,30 @@ pub mod commands {
         resp.into_reader()
             .read_to_string(&mut text)
             .map_err(|e| format!("read GitHub response: {e}"))?;
-        serde_json::from_str::<Value>(&text).map_err(|e| format!("bad GitHub response: {e}"))
+        let releases: Value = serde_json::from_str(&text).map_err(|e| format!("bad GitHub response: {e}"))?;
+        let arr = releases.as_array().ok_or("unexpected GitHub response shape")?;
+
+        // Pick the newest native release (tag starts with "v" + a digit, and is
+        // not the python-dashboard stream).
+        let mut best: Option<(&str, &Value)> = None;
+        for rel in arr {
+            let tag = rel.get("tag_name").and_then(|t| t.as_str()).unwrap_or("");
+            let is_native = tag.starts_with('v')
+                && tag[1..].chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false);
+            if !is_native {
+                continue;
+            }
+            let ver = tag.trim_start_matches('v');
+            match best {
+                None => best = Some((ver, rel)),
+                Some((cur, _)) => {
+                    if is_newer(ver, cur) {
+                        best = Some((ver, rel));
+                    }
+                }
+            }
+        }
+        best.map(|(_, rel)| rel.clone()).ok_or("no native (v*) release found".into())
     }
 
     /// Parse a version string into leading numeric parts (e.g. "v0.1.3" → [0,1,3]).
