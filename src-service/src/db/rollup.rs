@@ -118,12 +118,16 @@ fn top_apps_json(conn: &Connection, date: &str) -> String {
 fn top_sites_json(conn: &Connection, date: &str) -> String {
     let mut out = Vec::new();
     if let Ok(mut stmt) = conn.prepare(
-        "SELECT b.normalized_domain, COUNT(*), COALESCE(SUM(s.duration_ms),0)
-           FROM browser_visits b LEFT JOIN app_sessions s ON s.id = b.session_id
-          WHERE b.local_date = ?1
+        "SELECT b.normalized_domain,
+                (SELECT COUNT(*) FROM browser_visits v
+                  WHERE v.local_date = ?1 AND v.normalized_domain = b.normalized_domain),
+                COALESCE(SUM(s.duration_ms),0)
+           FROM (SELECT DISTINCT normalized_domain, session_id
+                   FROM browser_visits WHERE local_date = ?2) b
+           LEFT JOIN app_sessions s ON s.id = b.session_id
           GROUP BY b.normalized_domain ORDER BY 3 DESC LIMIT 12",
     ) {
-        if let Ok(rows) = stmt.query_map([date], |r| {
+        if let Ok(rows) = stmt.query_map([date, date], |r| {
             Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?, r.get::<_, i64>(2)?))
         }) {
             for r in rows.flatten() {

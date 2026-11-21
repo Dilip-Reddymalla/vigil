@@ -24,16 +24,19 @@ fn raw_top_applications(conn: &Connection, local_date: &str) -> Vec<(String, Str
 /// Read raw top domains for a local date.
 fn raw_top_websites(conn: &Connection, local_date: &str) -> Vec<(String, i64, i64)> {
     let mut stmt = match conn.prepare(
-        "SELECT b.normalized_domain, COUNT(*), COALESCE(SUM(s.duration_ms),0)
-           FROM browser_visits b
+        "SELECT b.normalized_domain,
+                (SELECT COUNT(*) FROM browser_visits v
+                  WHERE v.local_date = ?1 AND v.normalized_domain = b.normalized_domain),
+                COALESCE(SUM(s.duration_ms),0)
+           FROM (SELECT DISTINCT normalized_domain, session_id
+                   FROM browser_visits WHERE local_date = ?2) b
            LEFT JOIN app_sessions s ON s.id = b.session_id
-          WHERE b.local_date = ?1
           GROUP BY b.normalized_domain ORDER BY 3 DESC LIMIT 12",
     ) {
         Ok(s) => s,
         Err(_) => return Vec::new(),
     };
-    let rows = stmt.query_map([local_date], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)));
+    let rows = stmt.query_map([local_date, local_date], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)));
     match rows {
         Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
         Err(_) => Vec::new(),
