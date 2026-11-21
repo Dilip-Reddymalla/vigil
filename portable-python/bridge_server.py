@@ -65,7 +65,7 @@ def is_newer(a, b):
 
 
 def gh_latest_python():
-    """Return {version, url} for the newest python-dashboard release."""
+    """Return {version, url, assets} for the newest python-dashboard release."""
     url = f"https://api.github.com/repos/{REPO}/releases"
     req = urllib.request.Request(url, headers=UA)
     with urllib.request.urlopen(req, timeout=20) as resp:
@@ -81,10 +81,11 @@ def gh_latest_python():
             zip_asset = next((a for a in assets if a.get("name", "").endswith(".zip")), None)
             if zip_asset:
                 dl = zip_asset.get("browser_download_url") or zip_asset.get("url")
-                best = (ver, dl)
+                asset_names = [a.get("name", "") for a in assets if a.get("name")]
+                best = (ver, dl, asset_names)
     if best is None:
         raise RuntimeError("no python-dashboard release found")
-    return {"version": best[0], "url": best[1]}
+    return {"version": best[0], "url": best[1], "assets": best[2]}
 
 
 def apply_update():
@@ -226,6 +227,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "installed": inst,
                     "latest": info["version"],
                     "has_update": is_newer(info["version"], inst),
+                    "assets": info.get("assets", []),
                 })
             except Exception as exc:  # noqa: BLE001
                 send_json(self, {"error": str(exc)})

@@ -267,7 +267,7 @@ export function SettingsView() {
             )}
           </div>
           {updateMsg && <p className="text-xs text-(--text-tertiary)">{updateMsg}</p>}
-          {updateInfo && updateInfo.assets.length > 0 && (
+          {updateInfo && (updateInfo.assets?.length ?? 0) > 0 && (
             <p className="break-words text-[11px] text-(--text-tertiary)">
               Release assets: {updateInfo.assets.join(", ")}
             </p>
