@@ -192,17 +192,32 @@ export interface UpdateInfo {
   assets: string[];
 }
 
-// Self-update is a Tauri-native feature; it isn't available through the python
-// bridge. These return "no update" / false so the UI degrades gracefully.
+// Self-update via the python bridge (browser build). The bridge checks the
+// GitHub release feed and can download + apply the latest python-dashboard zip.
 export async function checkForUpdates(
   _owner: string,
   _repo: string,
 ): Promise<UpdateInfo | null> {
-  return null;
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/update-check`, { method: "GET" });
+    if (!res.ok) return null;
+    const data = (await res.json()) as UpdateInfo & { error?: string };
+    if (data.error) return null;
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 export async function applyUpdate(_owner: string, _repo: string): Promise<boolean> {
-  return false;
+  try {
+    const res = await fetch(`${BRIDGE_URL}/api/update-apply`, { method: "POST" });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { ok?: boolean };
+    return data.ok === true;
+  } catch {
+    return false;
+  }
 }
 
 export async function exitApp(): Promise<void> {
