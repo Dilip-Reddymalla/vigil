@@ -61,8 +61,9 @@ fn app_used(conn: &Connection, date: &str, process: &str) -> i64 {
 fn domain_used(conn: &Connection, date: &str, domain: &str) -> i64 {
     conn.query_row(
         "SELECT COALESCE(SUM(s.duration_ms),0)
-           FROM browser_visits b LEFT JOIN app_sessions s ON s.id = b.session_id
-          WHERE b.local_date = ?1 AND b.normalized_domain = ?2",
+           FROM (SELECT DISTINCT session_id FROM browser_visits
+                  WHERE local_date = ?1 AND normalized_domain = ?2) b
+           LEFT JOIN app_sessions s ON s.id = b.session_id",
         [date, domain],
         |r| r.get(0),
     )

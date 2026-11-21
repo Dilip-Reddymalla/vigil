@@ -24,16 +24,19 @@ fn raw_top_applications(conn: &Connection, local_date: &str) -> Vec<(String, Str
 /// Read raw top domains for a local date.
 fn raw_top_websites(conn: &Connection, local_date: &str) -> Vec<(String, i64, i64)> {
     let mut stmt = match conn.prepare(
-        "SELECT b.normalized_domain, COUNT(*), COALESCE(SUM(s.duration_ms),0)
-           FROM browser_visits b
+        "SELECT b.normalized_domain,
+                (SELECT COUNT(*) FROM browser_visits v
+                  WHERE v.local_date = ?1 AND v.normalized_domain = b.normalized_domain),
+                COALESCE(SUM(s.duration_ms),0)
+           FROM (SELECT DISTINCT normalized_domain, session_id
+                   FROM browser_visits WHERE local_date = ?2) b
            LEFT JOIN app_sessions s ON s.id = b.session_id
-          WHERE b.local_date = ?1
           GROUP BY b.normalized_domain ORDER BY 3 DESC LIMIT 12",
     ) {
         Ok(s) => s,
         Err(_) => return Vec::new(),
     };
-    let rows = stmt.query_map([local_date], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)));
+    let rows = stmt.query_map([local_date, local_date], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)));
     match rows {
         Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
         Err(_) => Vec::new(),
@@ -268,5 +271,37 @@ mod tests {
         let out = network_hourly(&conn, "2026-11-16");
         assert_eq!(out[5], (1, 2));
         assert_eq!(out[0], (0, 0));
+    }
+
+    #[test]
+    fn top_websites_no_fanout_overcount() {
+        let conn = mem();
+        // One session, 1 hour duration.
+        conn.execute(
+            "INSERT INTO app_sessions
+                (session_uuid, process_name, category, is_browser, start_time, end_time,
+                 duration_ms, local_date, status)
+             VALUES ('s1','brave.exe','browsing',1,'2026-11-21T08:00:00Z',
+                     '2026-11-21T09:00:00Z',3600000,'2026-11-21','completed')",
+            [],
+        )
+        .unwrap();
+        let sid: i64 = conn.last_insert_rowid();
+        // 5 visits in that same session, all to kick.com.
+        for i in 0..5 {
+            conn.execute(
+                "INSERT INTO browser_visits
+                    (session_id, browser_name, domain, normalized_domain, start_time, local_date)
+                 VALUES (?1,'brave','kick.com','kick.com',?2,'2026-11-21')",
+                rusqlite::params![sid, format!("2026-11-21T08:{:02}:00Z", i)],
+            )
+            .unwrap();
+        }
+        let tops = raw_top_websites(&conn, "2026-11-21");
+        eprintln!("tops = {tops:?}");
+        let kick = tops.iter().find(|t| t.0 == "kick.com").expect("kick.web");
+        // Visit count preserved (5) but duration counted once (1h), not 5x.
+        assert_eq!(kick.1, 5);
+        assert_eq!(kick.2, 3_600_000);
     }
 }
