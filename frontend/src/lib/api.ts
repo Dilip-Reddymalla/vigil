@@ -69,7 +69,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> 
 }
 
 export async function fetchSummary(localDate: string = today()): Promise<DashboardSummary> {
-  const raw = await call<any>("get_dashboard", { localDate });
+  const raw = await call<any>("dashboard.get_summary", { local_date: localDate });
   const mapped = mapSummary(raw);
   log.info("fetchSummary mapped", mapped);
   return mapped;
@@ -83,7 +83,7 @@ export interface TopApp {
 }
 export async function fetchApps(localDate: string = today()): Promise<TopApp[]> {
   try {
-    return await call<TopApp[]>("applications_top", { localDate });
+    return await call<TopApp[]>("applications.top", { local_date: localDate });
   } catch {
     return [];
   }
@@ -96,7 +96,7 @@ export interface TopSite {
 }
 export async function fetchSites(localDate: string = today()): Promise<TopSite[]> {
   try {
-    return await call<TopSite[]>("websites_top", { localDate });
+    return await call<TopSite[]>("websites.top", { local_date: localDate });
   } catch {
     return [];
   }
@@ -109,7 +109,7 @@ export interface HourlyNetwork {
 }
 export async function fetchNetworkHourly(localDate: string = today()): Promise<HourlyNetwork[]> {
   try {
-    return await call<HourlyNetwork[]>("network_hourly", { localDate });
+    return await call<HourlyNetwork[]>("network.hourly", { local_date: localDate });
   } catch {
     return [];
   }
@@ -123,7 +123,7 @@ export interface SessionRow {
 }
 export async function fetchTimeline(localDate: string = today()): Promise<SessionRow[]> {
   try {
-    return await call<SessionRow[]>("timeline_sessions", { localDate });
+    return await call<SessionRow[]>("timeline.sessions", { local_date: localDate });
   } catch {
     return [];
   }
@@ -144,7 +144,7 @@ function mapStatus(raw: any): ServiceStatus {
 
 export async function getStatus(): Promise<ServiceStatus | null> {
   try {
-    const raw = await call<any>("get_status");
+    const raw = await call<any>("service.status");
     return raw ? mapStatus(raw) : null;
   } catch {
     return null;
@@ -153,7 +153,8 @@ export async function getStatus(): Promise<ServiceStatus | null> {
 
 export async function setPaused(paused: boolean): Promise<boolean> {
   try {
-    return await call<boolean>("set_paused", { paused });
+    const method = paused ? "monitoring.pause" : "monitoring.resume";
+    return await call<boolean>(method, {});
   } catch {
     return false;
   }
@@ -161,7 +162,7 @@ export async function setPaused(paused: boolean): Promise<boolean> {
 
 export async function setSetting(key: string, value: string, valueType: string): Promise<boolean> {
   try {
-    return await call<boolean>("set_setting", { key, value, valueType });
+    return await call<boolean>("settings.set", { key, value, value_type: valueType });
   } catch {
     return false;
   }
@@ -169,7 +170,7 @@ export async function setSetting(key: string, value: string, valueType: string):
 
 export async function getSetting(key: string): Promise<string | null> {
   try {
-    return await call<string | null>("settings_get", { key });
+    return await call<string | null>("settings.get", { key });
   } catch {
     return null;
   }
@@ -177,7 +178,7 @@ export async function getSetting(key: string): Promise<string | null> {
 
 export async function getSystemName(): Promise<string> {
   try {
-    const v = await call<unknown>("system_name");
+    const v = await call<unknown>("system.name");
     return typeof v === "string" && v.length > 0 ? v : "This PC";
   } catch {
     return "This PC";
@@ -191,28 +192,21 @@ export interface UpdateInfo {
   assets: string[];
 }
 
-export async function checkForUpdates(owner: string, repo: string): Promise<UpdateInfo | null> {
-  try {
-    return await call<UpdateInfo>("update_check", { owner, repo });
-  } catch {
-    return null;
-  }
+// Self-update is a Tauri-native feature; it isn't available through the python
+// bridge. These return "no update" / false so the UI degrades gracefully.
+export async function checkForUpdates(
+  _owner: string,
+  _repo: string,
+): Promise<UpdateInfo | null> {
+  return null;
 }
 
-export async function applyUpdate(owner: string, repo: string): Promise<boolean> {
-  try {
-    return await call<boolean>("update_apply", { owner, repo });
-  } catch {
-    return false;
-  }
+export async function applyUpdate(_owner: string, _repo: string): Promise<boolean> {
+  return false;
 }
 
 export async function exitApp(): Promise<void> {
-  try {
-    await call("app_exit");
-  } catch {
-    /* ignore */
-  }
+  /* no-op in browser build */
 }
 
 export interface ComparisonMetrics {
@@ -250,7 +244,7 @@ export interface Comparison {
 
 export async function fetchComparison(period: "week" | "month"): Promise<Comparison | null> {
   try {
-    return await call<Comparison>("overview_compare", { period });
+    return await call<Comparison>("overview.compare", { period });
   } catch {
     return null;
   }
@@ -258,7 +252,7 @@ export async function fetchComparison(period: "week" | "month"): Promise<Compari
 
 export async function addExclusion(processName: string): Promise<boolean> {
   try {
-    return await call<boolean>("add_exclusion", { processName });
+    return await call<boolean>("exclusions.add_app", { process_name: processName });
   } catch {
     return false;
   }
@@ -266,7 +260,7 @@ export async function addExclusion(processName: string): Promise<boolean> {
 
 export async function listExclusions(): Promise<string[]> {
   try {
-    return await call<string[]>("exclusions_list");
+    return await call<string[]>("exclusions.list");
   } catch {
     return [];
   }
@@ -274,7 +268,7 @@ export async function listExclusions(): Promise<string[]> {
 
 export async function backupDb(targetPath: string): Promise<boolean> {
   try {
-    return await call<boolean>("backup_db", { targetPath });
+    return await call<boolean>("database.backup", { target_path: targetPath });
   } catch {
     return false;
   }
@@ -287,7 +281,7 @@ export async function exportReport(
   format: "csv" | "pdf" = "csv",
 ): Promise<string> {
   try {
-    return await call<string>("export_report", { anchor, targetPath, granularity, format });
+    return await call<string>("reports.export", { anchor, target_path: targetPath, granularity, format });
   } catch (e) {
     log.error("export_report failed", e);
     return "";
@@ -296,7 +290,7 @@ export async function exportReport(
 
 export async function setRetention(days: number): Promise<boolean> {
   try {
-    return await call<boolean>("database_retention", { keepDays: days });
+    return await call<boolean>("database.retention", { keep_days: days });
   } catch (e) {
     log.error("set_retention failed", e);
     return false;
@@ -305,21 +299,16 @@ export async function setRetention(days: number): Promise<boolean> {
 
 export async function getRetention(): Promise<number> {
   try {
-    const v = await call<any>("database_retention_get");
+    const v = await call<any>("database.retention.get");
     return Number(v?.retention_days ?? 90);
   } catch {
     return 90;
   }
 }
 
-/** Open the compiled folder in Explorer via the Tauri command. */
+/** Open the compiled folder in Explorer. Not available in the browser build. */
 export async function openReportFolder(): Promise<boolean> {
-  try {
-    return await call<boolean>("open_report_folder");
-  } catch (e) {
-    log.error("open_report_folder failed", e);
-    return false;
-  }
+  return false;
 }
 
 /** Open a folder picker. In the browser build there is no native dialog, so we
