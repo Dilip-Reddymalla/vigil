@@ -39,7 +39,36 @@ fn main() {
     }
 }
 
+/// Enforce a single service instance per user. Creates a named mutex; if another
+/// instance already holds it, we return `false` so the caller exits quietly. The
+/// handle is intentionally leaked for the process lifetime (it is never freed).
+fn acquire_single_instance() -> bool {
+    use windows_sys::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError};
+    use windows_sys::Win32::System::Threading::CreateMutexW;
+
+    let sid = std::process::id().to_string(); // fallback name
+    let sid = std::env::var("USERNAME").unwrap_or(sid);
+    let name = format!("Local\\VigilService_{sid}");
+    let wide: Vec<u16> = name.encode_utf16().chain(Some(0)).collect();
+
+    // SAFETY: CreateMutexW with a fixed name; we leak the handle on purpose.
+    let h = unsafe { CreateMutexW(std::ptr::null_mut(), 1, wide.as_ptr()) };
+    if h.is_null() {
+        return true; // couldn't create; don't block startup
+    }
+    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+        return false; // another instance is running
+    }
+    true
+}
+
 fn run() -> anyhow::Result<()> {
+    // Single-instance guard: exit quietly if another service is already running.
+    if !acquire_single_instance() {
+        eprintln!("vigil-service: another instance is already running; exiting.");
+        return Ok(());
+    }
+
     // Detach from the launch console so closing the terminal/console does NOT
     // terminate the service. It then only exits via the tray "Exit" action.
     unsafe {
