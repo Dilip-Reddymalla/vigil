@@ -1,4 +1,4 @@
-# Vigil python-dashboard (Smart App Control friendly)
+# Vigil python-dashboard 0.1.5 (Smart App Control friendly)
 
 This branch/folder provides an alternative distribution of the Vigil **dashboard**
 and **setup** that runs under trusted runtimes (Python + a web browser), so it is
