@@ -174,6 +174,30 @@ pub fn compare(conn: &Connection, period: &str) -> Option<Value> {
     }))
 }
 
+/// Full measured metrics for a user-selected week (the Monday→Sunday containing
+/// `anchor`). Unlike `compare`, this reports a single week's absolute values plus
+/// its per-day breakdown — used by the "select a week" tab on the Improvements page.
+pub fn week_detail(conn: &Connection, anchor: &str) -> Option<Value> {
+    let (start, end) = week_range(anchor)?;
+    let m = aggregate(conn, &start, &end);
+    let daily = daily_series(conn, &start, &end);
+
+    Some(json!({
+        "period": "week_detail",
+        "ranges": { "current": { "start": start, "end": end } },
+        "metrics": {
+            "screen_ms": m.screen_ms,
+            "focus": m.focus,
+            "deep_ms": m.deep_ms,
+            "deep_sessions": m.deep_sessions,
+            "distraction": m.distraction,
+            "active_ratio": m.active_ratio,
+            "days": m.days,
+        },
+        "daily": daily,
+    }))
+}
+
 fn build_reasons(
     cur: &PeriodMetrics,
     prev: &PeriodMetrics,
@@ -277,30 +301,57 @@ mod tests {
         assert_eq!(e, "2026-11-30");
     }
 
+    /// Seed all 7 days of the Monday→Sunday week containing `anchor`.
+    fn seed_week(conn: &Connection, anchor: &str, screen_ms: i64, focus: f64, deep_ms: i64) {
+        let (s, e) = week_range(anchor).unwrap();
+        let start_date = NaiveDate::parse_from_str(&s, "%Y-%m-%d").unwrap();
+        for i in 0..7 {
+            let d = start_date + Duration::days(i);
+            seed(conn, &fmt(d), screen_ms, focus, deep_ms);
+        }
+    }
+
     #[test]
     fn verdict_good_when_screen_down_deep_up() {
         let conn = mem();
-        // previous week (Mon-Sun 2026-11-09..15)
-        for d in 9..=15 {
-            seed(&conn, &format!("2026-11-{d:02}"), 3_600_000, 50.0, 1_800_000);
-        }
-        // current week (Mon-Sun 2026-11-16..22) — less screen, more deep
-        for d in 16..=22 {
-            seed(&conn, &format!("2026-11-{d:02}"), 2_400_000, 60.0, 2_800_000);
-        }
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let prev_monday = NaiveDate::parse_from_str(week_range(&today).unwrap().0.as_str(), "%Y-%m-%d").unwrap()
+            - Duration::days(1);
+        seed_week(&conn, &fmt(prev_monday), 3_600_000, 50.0, 1_800_000);
+        seed_week(&conn, &today, 2_400_000, 60.0, 2_800_000);
         let v = compare(&conn, "week").unwrap();
         assert_eq!(v["verdict"], "good");
     }
 
     #[test]
+    fn week_detail_reports_selected_week() {
+        let conn = mem();
+        // Seed Mon-Sun 2026-11-16..22
+        for d in 16..=22 {
+            seed(&conn, &format!("2026-11-{d:02}"), 1_000_000, 55.0, 500_000);
+        }
+        // A different week (2026-11-09..15) that must NOT leak in.
+        for d in 9..=11 {
+            seed(&conn, &format!("2026-11-{d:02}"), 9_000_000, 10.0, 0);
+        }
+        let v = week_detail(&conn, "2026-11-20").unwrap(); // Thursday → that week
+        let m = &v["metrics"];
+        // 7 days × 1,000,000 ms
+        assert_eq!(m["screen_ms"], 7_000_000);
+        assert_eq!(m["deep_ms"], 3_500_000);
+        assert_eq!(m["deep_sessions"], 7);
+        assert_eq!(m["days"], 7);
+        assert_eq!(v["daily"].as_array().map(|a| a.len()), Some(7));
+    }
+
+    #[test]
     fn verdict_needs_attention_when_screen_up_focus_down() {
         let conn = mem();
-        for d in 9..=15 {
-            seed(&conn, &format!("2026-11-{d:02}"), 2_400_000, 60.0, 2_000_000);
-        }
-        for d in 16..=22 {
-            seed(&conn, &format!("2026-11-{d:02}"), 4_200_000, 40.0, 1_000_000);
-        }
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let prev_monday = NaiveDate::parse_from_str(week_range(&today).unwrap().0.as_str(), "%Y-%m-%d").unwrap()
+            - Duration::days(1);
+        seed_week(&conn, &fmt(prev_monday), 2_400_000, 60.0, 2_000_000);
+        seed_week(&conn, &today, 4_200_000, 40.0, 1_000_000);
         let v = compare(&conn, "week").unwrap();
         assert_eq!(v["verdict"], "needs_attention");
     }

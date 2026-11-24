@@ -133,6 +133,13 @@ fn dispatch_inner(engine: &mut Engine, method: &str, params: Option<&Value>) -> 
             let period = str_param(params, "period").unwrap_or_else(|_| "week".into());
             Ok(engine.compare_periods(&period))
         }
+        "overview.week" => {
+            let anchor = match str_param(params, "anchor") {
+                Ok(a) => a.to_string(),
+                Err(_) => chrono::Local::now().format("%Y-%m-%d").to_string(),
+            };
+            Ok(engine.week_detail(&anchor))
+        }
         "database.retention" => {
             let days: i64 = params
                 .and_then(|p| p.get("keep_days"))
