@@ -725,6 +725,12 @@ impl Engine {
             .unwrap_or_else(|| serde_json::json!({ "verdict": "mixed", "reasons": [] }))
     }
 
+    /// `overview.week` — full metrics for a user-selected week (Mon–Sun).
+    pub fn week_detail(&self, anchor: &str) -> serde_json::Value {
+        crate::db::trends::week_detail(self.db.conn(), anchor)
+            .unwrap_or_else(|| serde_json::json!({ "period": "week_detail", "metrics": {}, "daily": [] }))
+    }
+
     /// `exclusions.list`
     pub fn exclusions(&self) -> serde_json::Value {
         serde_json::json!(crate::db::insights::list_exclusions(self.db.conn()))

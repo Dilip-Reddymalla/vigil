@@ -351,11 +351,17 @@ Start-Process '{install_dir}\vigil-dashboard.exe'
         app.exit(0);
     }
 
-    /// `overview.compare` — current vs previous period metrics for the
+    /// `overview.compare` - current vs previous period metrics for the
     /// Improvements page.
     #[tauri::command]
     pub fn overview_compare(period: String) -> Result<Value, String> {
         ServiceClient::call("overview.compare", Some(json!({ "period": period })))
+    }
+
+    /// `overview.week` — full metrics for a user-selected week.
+    #[tauri::command]
+    pub fn overview_week(anchor: String) -> Result<Value, String> {
+        ServiceClient::call("overview.week", Some(json!({ "anchor": anchor })))
     }
 
     #[tauri::command]
@@ -439,7 +445,8 @@ pub fn run() {
             commands::update_check,
             commands::update_apply,
             commands::app_exit,
-            commands::overview_compare
+            commands::overview_compare,
+            commands::overview_week
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

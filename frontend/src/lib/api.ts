@@ -241,6 +241,21 @@ export async function fetchComparison(period: "week" | "month"): Promise<Compari
   }
 }
 
+export interface WeekDetail {
+  period: string;
+  ranges: { current: { start: string; end: string } };
+  metrics: ComparisonMetrics;
+  daily: ComparisonDailyPoint[];
+}
+
+export async function fetchWeekDetail(anchor: string): Promise<WeekDetail | null> {
+  try {
+    return await call<WeekDetail>("overview_week", { anchor });
+  } catch {
+    return null;
+  }
+}
+
 export async function addExclusion(processName: string): Promise<boolean> {
   try {
     return await call<boolean>("add_exclusion", { processName });

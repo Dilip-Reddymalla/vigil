@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchComparison, type Comparison, type Verdict } from "@/lib/api";
+import { fetchComparison, fetchWeekDetail, type Comparison, type Verdict, type WeekDetail } from "@/lib/api";
 import { cn, formatDuration } from "@/lib/utils";
+import { today } from "@/lib/date";
 
-type Period = "week" | "month";
+type Period = "week" | "month" | "week_detail";
 
 /* ------------------------------------------------------------------ */
 /* Verdict theming                                                    */
@@ -295,7 +296,8 @@ export function ImprovementsView() {
   const [period, setPeriod] = useState<Period>("week");
   const { data, isLoading } = useQuery({
     queryKey: ["comparison", period],
-    queryFn: () => fetchComparison(period),
+    queryFn: () => fetchComparison(period as "week" | "month"),
+    enabled: period !== "week_detail",
     refetchInterval: 60_000,
   });
 
@@ -318,7 +320,11 @@ export function ImprovementsView() {
           </h1>
         </div>
         <div className="flex rounded-full border border-(--border-subdued) bg-(--surface) p-1 shadow-sm">
-          {(["week", "month"] as const).map((p) => (
+          {([
+            ["week", "Week"],
+            ["month", "Month"],
+            ["week_detail", "Pick week"],
+          ] as [Period, string][]).map(([p, label]) => (
             <button
               key={p}
               type="button"
@@ -330,13 +336,15 @@ export function ImprovementsView() {
                   : "text-(--text-secondary) hover:text-(--text-primary)",
               )}
             >
-              {p === "week" ? "Week" : "Month"}
+              {label}
             </button>
           ))}
         </div>
       </div>
 
-      {isLoading && !data ? (
+      {period === "week_detail" ? (
+        <WeekDetailPanel />
+      ) : isLoading && !data ? (
         <div className="space-y-6">
           <div className="h-32 animate-pulse rounded-2xl bg-(--surface-2)" />
           <div className="grid gap-4 sm:grid-cols-3">
@@ -370,6 +378,158 @@ export function ImprovementsView() {
 
           {/* Day chart (week only) */}
           {data.period === "week" && <DayChart c={data} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pick-a-week panel                                                    */
+/* ------------------------------------------------------------------ */
+function WeekMetricCard({ label, value, accent }: { label: string; value: string; accent: [string, string] }) {
+  return (
+    <div
+      className="group relative overflow-hidden rounded-2xl border border-(--border-subdued) bg-(--surface) p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-1 opacity-80"
+        style={{ background: `linear-gradient(90deg, ${accent[0]}, ${accent[1]})` }}
+      />
+      <div
+        className="pointer-events-none absolute -right-10 -top-10 size-28 rounded-full blur-2xl opacity-20 transition-opacity duration-300 group-hover:opacity-40"
+        style={{ background: `radial-gradient(circle, ${accent[0]}, transparent 70%)` }}
+      />
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">{label}</p>
+      <p className="mt-3 text-3xl font-bold tracking-tight tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+function WeekDayChart({ data }: { data: WeekDetail }) {
+  const [metric, setMetric] = useState<"screen" | "deep" | "focus">("screen");
+  const days = data.daily;
+  const series = days.map((d) =>
+    metric === "screen" ? d.screen_ms : metric === "deep" ? d.deep_ms : (d.focus ?? 0),
+  );
+  const max = Math.max(1, ...series);
+  const fmt = (v: number) => (metric === "focus" ? `${Math.round(v)}` : formatDuration(v));
+
+  return (
+    <div className="rounded-2xl border border-(--border-subdued) bg-(--surface) p-5" style={{ boxShadow: "var(--shadow-card)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Day by day</h3>
+          <p className="text-xs text-(--text-tertiary)">Daily values within this week</p>
+        </div>
+        <div className="flex rounded-full bg-(--surface-2) p-0.5 text-xs font-medium">
+          {(["screen", "deep", "focus"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMetric(m)}
+              className={cn(
+                "rounded-full px-3 py-1 transition-colors",
+                metric === m
+                  ? "bg-(--surface) text-(--text-primary) shadow-sm"
+                  : "text-(--text-tertiary) hover:text-(--text-secondary)",
+              )}
+            >
+              {m === "screen" ? "Screen" : m === "deep" ? "Deep" : "Focus"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-end gap-[6px]">
+        {days.map((d, i) => {
+          const v = series[i] ?? 0;
+          const h = Math.max(4, Math.round((v / max) * 150));
+          return (
+            <div key={d.date} className="group flex flex-1 flex-col items-center gap-2">
+              <div className="flex h-36 w-full items-end justify-center">
+                <div
+                  className="w-full rounded-t-md transition-all duration-300 group-hover:opacity-100"
+                  style={{
+                    height: `${h}px`,
+                    background: "linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 55%, transparent))",
+                    opacity: 0.92,
+                    boxShadow: "0 8px 18px -8px color-mix(in srgb, var(--accent) 45%, transparent)",
+                  }}
+                >
+                  <div className="pointer-events-none -mt-8 hidden rounded-md bg-(--text-primary) px-2 py-1 text-[10px] font-medium text-(--background) shadow-lg group-hover:block">
+                    {d.date} · {fmt(v)}
+                  </div>
+                </div>
+              </div>
+              <span className="text-[10px] font-medium text-(--text-tertiary)">
+                {new Date(`${d.date}T00:00:00`).toLocaleDateString([], { weekday: "short" })}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WeekDetailPanel() {
+  const [anchor, setAnchor] = useState(today());
+  const { data, isLoading } = useQuery({
+    queryKey: ["week_detail", anchor],
+    queryFn: () => fetchWeekDetail(anchor),
+    enabled: !!anchor,
+  });
+
+  const cards = data
+    ? [
+        { label: "Screen time", value: formatDuration(data.metrics.screen_ms), accent: ["#0ea5e9", "#6366f1"] as [string, string] },
+        { label: "Focus score", value: data.metrics.focus == null ? "—" : `${Math.round(data.metrics.focus)}`, accent: ["#10b981", "#059669"] as [string, string] },
+        { label: "Deep work", value: formatDuration(data.metrics.deep_ms), accent: ["#8b5cf6", "#6d28d9"] as [string, string] },
+        { label: "Deep sessions", value: `${data.metrics.deep_sessions}`, accent: ["#f59e0b", "#d97706"] as [string, string] },
+        { label: "Distraction", value: data.metrics.distraction == null ? "—" : data.metrics.distraction.toFixed(1), accent: ["#f43f5e", "#e11d48"] as [string, string] },
+        { label: "Active ratio", value: data.metrics.active_ratio == null ? "—" : `${Math.round(data.metrics.active_ratio * 100)}%`, accent: ["#06b6d4", "#0891b2"] as [string, string] },
+      ]
+    : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="space-y-1.5">
+          <span className="text-xs font-medium text-(--text-secondary)">Pick a date in the week (Mon–Sun)</span>
+          <input
+            type="date"
+            value={anchor}
+            onChange={(e) => e.target.value && setAnchor(e.target.value)}
+            className="block rounded-xl border border-(--border-subdued) bg-(--surface) px-4 py-2 text-sm shadow-sm outline-none focus:ring-2 focus:ring-(--accent)/40"
+          />
+        </label>
+        {data && (
+          <p className="text-xs text-(--text-tertiary)">
+            Week of {data.ranges.current.start} → {data.ranges.current.end}
+          </p>
+        )}
+      </div>
+
+      {isLoading && !data ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-32 animate-pulse rounded-2xl bg-(--surface-2)" />
+          ))}
+        </div>
+      ) : !data || cards.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-(--border-subdued) p-12 text-center text-sm text-(--text-tertiary)">
+          No data for that week yet.
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {cards.map((c) => (
+              <WeekMetricCard key={c.label} label={c.label} value={c.value} accent={c.accent} />
+            ))}
+          </div>
+          <WeekDayChart data={data} />
         </>
       )}
     </div>
