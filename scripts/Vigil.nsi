@@ -2,7 +2,7 @@
 ; Build with makensis (NSIS 3.x).
 
 !define APPNAME "Vigil"
-!define VERSION "0.1.7"
+!define VERSION "0.1.8"
 !define EXE_SERVICE "vigil-service.exe"
 !define EXE_DASH "vigil-dashboard.exe"
 
